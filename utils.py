@@ -7,7 +7,8 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_val_score, cross_validate
 from sklearn.preprocessing import StandardScaler
-
+sns.set_context('talk', font_scale=1)
+sns.set_palette('Set1')
 
 def process_missing_and_duplicate_timestamps(filepath, verbose=False):
     # This gist was created for the Kaggle dataset "Hourly Energy Consumption" which can be found at https://www.kaggle.com/robikscube/hourly-energy-consumption
@@ -92,8 +93,7 @@ def process_missing_and_duplicate_timestamps(filepath, verbose=False):
     df.reset_index(drop=True, inplace=True)
     return df
 
-
-def make_features(data, max_lag, rolling_mean_size):
+def make_features(data, max_lag = None, rolling_mean_size = None):
     """
     Creates features based on the previous values of the target variable.
     Adds rolling mean.
@@ -102,16 +102,182 @@ def make_features(data, max_lag, rolling_mean_size):
         data (pd.DataFrame): Dataframe with the target variable.
         max_lag (int): Maximum lag.
         rolling_mean_size (int): Size of the rolling mean window in hours.
-    """
+    """    
     data = data.copy()
-    data['doy'] = data.index.doy
     data['dayofweek'] = data.index.dayofweek
     data['hour'] = data.index.hour
+    data['doy'] = data.index.dayofyear
 
-    # Отстающие значения
-    for lag in range(1, max_lag + 1):
-        data['lag_{}'.format(lag)] = data['num_orders'].shift(lag)
+    if max_lag is not None:
+        for lag in range(1, max_lag + 1):
+            data['lag_{}'.format(lag)] = data['MW'].shift(lag)
 
-    # Скользящее среднее
-    data['rolling_mean'] = data['num_orders'].shift().rolling(
-        rolling_mean_size).mean()
+    if rolling_mean_size is not None:
+        data['rolling_mean'] = data['MW'].shift().rolling(rolling_mean_size).mean()
+    return data
+
+
+def load_data(filepath, max_lag = 1, rolling_mean_size = None):
+    df = process_missing_and_duplicate_timestamps(filepath, verbose=False)
+    df['dt'] = pd.to_datetime(df['Datetime'])
+    df.set_index('dt', inplace=True)
+    df.drop('Datetime', axis=1, inplace=True)
+    df = df.resample('1H').sum() 
+    df.columns = ['MW']
+
+    df = make_features(df, max_lag, rolling_mean_size)
+    df = df.dropna()
+    return df
+
+
+def mape(y_true, y_pred):
+    return round(np.mean(np.abs((y_true - y_pred) / y_true)) * 100, 2)
+
+
+def model_fit(data, model, target_col = 'MW', test_size = 0.3, visualize = True):
+    """
+    Fits the model to the data.
+
+    Args:
+        data (pd.DataFrame): Dataframe with the target variable.
+        model (sklearn model): Model to fit.
+        target_col (str): Name of the target column.
+
+    Returns:
+        model (sklearn model): Fitted model.
+    """
+
+    train, test = train_test_split(
+            data, shuffle=False, test_size=test_size )
+
+    X_train = train.drop(target_col, axis=1)
+    y_train = train[target_col]
+
+    X_test = test.drop(target_col, axis=1)
+    y_test = test[target_col]
+
+    model.fit(X_train, y_train)
+
+    y_train_pred = model.predict(X_train)
+    y_test_pred = model.predict(X_test)
+
+    train_score = mape(y_train, y_train_pred)
+    test_score = mape(y_test, y_test_pred)
+
+    print('Train MAPE: {}'.format(train_score))
+    print('Test MAPE: {}'.format(test_score))
+
+
+
+    train['pred'] = y_train_pred
+    train['train'] = True
+    test['pred'] = y_test_pred
+    test['train'] = False
+
+
+    df_res = pd.concat([train, test], axis=0)
+
+    df_res['relative_error'] = 100*(df_res['MW'] - df_res['pred']) / df_res['MW']
+
+    if visualize:
+        plt.figure(figsize=(9, 9))
+        plt.plot(df_res.query('train')['MW'], df_res.query('train')['pred'], 'o', label='train', alpha = 0.5, color = 'C1')
+        plt.plot(df_res.query('not train')['MW'], df_res.query('not train')['pred'], 'o', label='test', alpha = 0.5, color = 'C2')
+
+        plt.xlabel('actual')
+        plt.ylabel('predicted')
+        
+        plt.legend()
+        plt.show()
+
+
+        plt.figure(figsize=(10, 5))
+        plt.plot(df_res.query('train')['MW'], label='train', alpha = 0.5, color = 'C1')
+        plt.plot(df_res.query('train')['pred'], label='train pred', alpha = 0.5, color = 'C1', linestyle = '--')
+
+        plt.plot(df_res.query('not train')['MW'], label='test', alpha = 0.5, color = 'C2')
+        plt.plot(df_res.query('not train')['pred'], label='test pred', alpha = 0.5, color = 'C2', linestyle = '--')
+
+        plt.xlabel('time')
+        plt.ylabel('MW')
+        plt.legend()
+        plt.title('Actual and predicted values')
+        plt.xticks(rotation=45)
+        plt.show()
+
+
+        #plot last week of train
+        plt.figure(figsize=(10, 5))
+        plt.plot(df_res.query('train').tail(7*24)['MW'], label='train', alpha = 0.5, color = 'C1')
+        plt.plot(df_res.query('train').tail(7*24)['pred'], label='train pred', alpha = 0.5, color = 'C0', linestyle = '--')
+
+        plt.xlabel('time')
+        plt.ylabel('MW')
+        plt.legend()
+        plt.title('Last week of train')
+        plt.xticks(rotation=45)
+        plt.show()
+
+
+
+    return model, df_res
+
+
+default_model = RandomForestRegressor(n_estimators=700, max_depth=10, n_jobs=-1,bootstrap = False)
+
+
+
+def find_outliers(df_res,  visualize = True, threshold_per_cent = 50):
+    outliers = df_res.query(f'abs(relative_error) > {threshold_per_cent}')
+    outliers_dates = outliers.index.map(lambda t: t.date()).unique()
+
+    if visualize:
+        for date in outliers_dates:
+            plt.figure(figsize=(10, 5))
+            #idxs = df_res.index.map(lambda t: t.date()) == date
+            #idxs are within 2 days
+            idxs = (df_res.index.map(lambda t: t.date()) >= date - pd.Timedelta(days=2)) & (df_res.index.map(lambda t: t.date()) <= date + pd.Timedelta(days=2))
+
+            actual = df_res[idxs]['MW']
+            pred = df_res[idxs]['pred']
+
+            outliers = df_res[idxs].query(f'abs(relative_error) > {threshold_per_cent}')
+
+            pred_low_th = pred - pred*threshold_per_cent/100
+            pred_high_th = pred + pred*threshold_per_cent/100
+
+
+            plt.plot(actual, label='actual', alpha = 0.5, color = 'C1')
+            plt.plot(pred, label='predicted', alpha = 0.5, color = 'C0', linestyle = '--')
+            plt.fill_between(df_res[idxs].index, pred_high_th, pred_low_th, alpha = 0.05, color = 'C0', label = f'{threshold_per_cent}% outlier threshold')
+
+            plt.plot(outliers['MW'], 'X', label='outliers', alpha = 0.5, color = 'r')
+
+            plt.xlabel('time')
+            plt.ylabel('MW')
+            plt.legend()
+            plt.title(f'Outliers on {date}')
+            plt.xticks(rotation=45)
+            plt.show()
+
+    return outliers
+
+
+def plot_date(df_res, date_str, half_width_days = 3):
+    date = pd.to_datetime(date_str)
+    plt.figure(figsize=(10, 5))
+
+    idxs = (df_res.index.map(lambda t: t.date()) >= date - pd.Timedelta(days=half_width_days)) & (df_res.index.map(lambda t: t.date()) <= date + pd.Timedelta(days=half_width_days))
+
+    actual = df_res[idxs]['MW']
+    pred = df_res[idxs]['pred']
+
+    plt.plot(actual, label='actual', alpha = 0.5, color = 'C1')
+    plt.plot(pred, label='predicted', alpha = 0.5, color = 'C0', linestyle = '--')
+
+    plt.xlabel('time')
+    plt.ylabel('MW')
+    plt.legend()
+    plt.title(f'{date} +- {half_width_days} days')
+    plt.xticks(rotation=45)
+    plt.show()
