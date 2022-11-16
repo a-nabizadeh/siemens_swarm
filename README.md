@@ -12,4 +12,9 @@ PJM Interconnection LLC (PJM) is a regional transmission organization (RTO) in t
 
 The hourly power consumption data comes from PJM's website and are in megawatts (MW).
 
-Raw data have a range of [issues](https://www.kaggle.com/datasets/robikscube/hourly-energy-consumption/discussion/175795?select=pjm_hourly_est.csv&sort=votes). A Kaggle user prepared this [gist](https://gist.github.com/ioanpier/e231b22bb9f705ef6280c8b73e40b4a1) for data cleaning which we use here (`process_missing_and_duplicate_timestamps` in  `utils.py`).
+
+
+Structure of the repository is as follows:
+
+* `utils.py` - contains functions used in the project, to prepare data and train models
+* `1-exporation.ipynb` - a notebook with data exploration and visualization
