@@ -7,3 +7,6 @@ data/est_hourly.paruqet
 data/energy-consumption.csv
 data/hourly1418_energy_temp_PV.csv
 __pycache__/*
+eda.ipynb
+random_forest_old.ipynb
+random_forest.ipynb

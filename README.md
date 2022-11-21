@@ -18,3 +18,5 @@ Structure of the repository is as follows:
 
 * `utils.py` - contains functions used in the project, to prepare data and train models
 * `1-exporation.ipynb` - a notebook with data exploration and visualization
+* `2-outliers-demo.ipynb` - a notebook with a demo of our model and search for discrepancies between the model and the data
+* `3-outliers-demo_no_lags.ipynb` - a notebook with a demo of our model and search for discrepancies between the model and the data, without using lags as a predictor

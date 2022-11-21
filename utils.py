@@ -136,7 +136,7 @@ def mape(y_true, y_pred):
     return np.mean(np.abs((y_true - y_pred) / y_true))
 
 
-def model_fit(data, model, target_col = 'MW', test_size = 0.3, visualize = True):
+def model_fit(data, model, target_col = 'MW', test_size = 0.3, visualize = True, diff_frac = 0.4):
     """
     Fits the model to the data.
 
@@ -179,15 +179,26 @@ def model_fit(data, model, target_col = 'MW', test_size = 0.3, visualize = True)
 
     df_res = pd.concat([train, test], axis=0)
 
-    df_res['relative_error'] = (df_res['MW'] - df_res['pred']) / df_res['MW']
+    df_res['relative_error'] = (df_res['MW'] - df_res['pred']) / df_res['pred']
 
     if visualize:
         plt.figure(figsize=(9, 9))
         plt.plot(df_res.query('train')['MW'], df_res.query('train')['pred'], 'o', label='train', alpha = 0.5, color = 'C1')
         plt.plot(df_res.query('not train')['MW'], df_res.query('not train')['pred'], 'o', label='test', alpha = 0.5, color = 'C2')
 
-        plt.xlabel('actual')
-        plt.ylabel('predicted')
+        max_mw, min_mw = df_res['MW'].max(), df_res['MW'].min()
+        ideal_line = np.linspace(min_mw, max_mw, 100)
+        ideal_line_14 = ideal_line * (diff_frac + 1)
+        ideal_line_06 = ideal_line * (1 - diff_frac)
+
+        plt.plot(ideal_line, ideal_line, 'k:', alpha = 0.5, label = f'ideal +- {diff_frac*100}%')
+        plt.plot(ideal_line, ideal_line_14, 'k--', alpha = 0.2)
+        plt.plot(ideal_line, ideal_line_06, 'k--', alpha = 0.2)
+
+        plt.xlabel('actual consumption, MW')
+        plt.ylabel('predicted consumption, MW')
+        plt.xlim(min_mw, max_mw)
+        plt.ylim(min_mw, max_mw)
         
         plt.legend()
         plt.show()
@@ -201,7 +212,7 @@ def model_fit(data, model, target_col = 'MW', test_size = 0.3, visualize = True)
         plt.plot(df_res.query('not train')['pred'], label='test pred', alpha = 0.5, color = 'C2', linestyle = '--')
 
         plt.xlabel('time')
-        plt.ylabel('MW')
+        plt.ylabel('consumption, MW')
         plt.legend()
         plt.title('Actual and predicted values')
         plt.xticks(rotation=45)
@@ -214,10 +225,24 @@ def model_fit(data, model, target_col = 'MW', test_size = 0.3, visualize = True)
         plt.plot(df_res.query('train').tail(7*24)['pred'], label='train pred', alpha = 0.5, color = 'C0', linestyle = '--')
 
         plt.xlabel('time')
-        plt.ylabel('MW')
+        plt.ylabel('consumption, MW')
         plt.legend()
         plt.title('Last week of train')
         plt.xticks(rotation=45)
+
+
+        #plot last week of test
+        plt.figure(figsize=(10, 5))
+        plt.plot(df_res.query('not train').tail(7*24)['MW'], label='test', alpha = 0.5, color = 'C2')
+        plt.plot(df_res.query('not train').tail(7*24)['pred'], label='test pred', alpha = 0.5, color = 'C3', linestyle = '--')
+
+        plt.xlabel('time')
+        plt.ylabel('consumption, MW')
+        plt.legend()
+        plt.title('Last week of test')
+        plt.xticks(rotation=45)
+
+
         plt.show()
 
 
