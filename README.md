@@ -86,7 +86,7 @@ The plot below shows the predictions of the model as the function of the true va
 
 We monitor the goodness of the model by calculating the [mean absolute percentage error](https://en.wikipedia.org/wiki/Mean_absolute_percentage_error) (MAPE) on the test set. In the model from the plot, MAPE is `0.014` for the test set and `0.017` for the train set. This means that the model is not overfitting much. Note that we do not do thorough hyperparameter tuning, so the model can be improved in future.
 
-The last week of test data is shown below:
+The last week of test data is shown below (`test` is a actual data, `test pred` is the prediction of our model):
 
 ![png](plots/2-4.png)
 
@@ -103,7 +103,7 @@ in which one sees that the prediction of out model overshoots the data on the 20
 The first thing to mention is that we did find interesting discrepancies between the model and the data with the help of our model. 
 The second thing is that the calibration of model and thresholds is not perfect, and it is definetely can be improved in future.
 
-We did not find any events on the region on that date. In addition, the shape of the consumption curve for that day suggest that this may be a data fluke  (e.g. energy grid producer turned off on the the sensort) rather than a real event. The fact is that we can start searching for events in the data with the help of our model.
+We did not find any events on the region on that date. In addition, the shape of the consumption curve for that day suggest that this may be a data fluke  (e.g. energy grid producer turned off on the the sensors) rather than a real event. The fact is that we can start searching for events in the data with the help of our model.
 
 ## (Interlude) Search for discrepancies without using lags as a predictor
 
