@@ -4,6 +4,8 @@
 
 This repository contains a quick technical demonstration that we prepared to support out idea submission for the Siemens sutainability challenge. Information about the challenge can be found [here](https://ecosystem.siemens.com/techforsustainability/swarm-behaviour-on-the-grid/overview).
 
+Needed modules: `numpy`, `pandas`, `scikit-learn`,  `matplotlib`, `seaborn`.
+
 ----
 # Section 1: data  
 
