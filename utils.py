@@ -7,12 +7,13 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_val_score, cross_validate
 from sklearn.preprocessing import StandardScaler
+from typing import List, Optional, Tuple
 sns.set_context('talk', font_scale=1)
 sns.set_palette('Set1')
 import warnings
 warnings.filterwarnings('ignore')
 
-def process_missing_and_duplicate_timestamps(filepath, verbose=False):
+def process_missing_and_duplicate_timestamps(filepath: str, verbose: bool=False)->pd.DataFrame:
     # This gist was created for the Kaggle dataset "Hourly Energy Consumption" which can be found at https://www.kaggle.com/robikscube/hourly-energy-consumption
     # Taking a look at the datasets, one can see that they are sorted by they are sorted by: year asc -> month desc -> day desc -> hour asc
     # There are also missing/duplicate values, which lead to offset by up to a day
@@ -95,15 +96,15 @@ def process_missing_and_duplicate_timestamps(filepath, verbose=False):
     df.reset_index(drop=True, inplace=True)
     return df
 
-def make_features(data, max_lag = None, rolling_mean_size = None):
+def make_features(data: pd.DataFrame, max_lag: Optional[int] = None, rolling_mean_size: Optional[int] = None):
     """
     Creates features based on the previous values of the target variable.
     Adds rolling mean.
 
     Args:
         data (pd.DataFrame): Dataframe with the target variable.
-        max_lag (int): Maximum lag.
-        rolling_mean_size (int): Size of the rolling mean window in hours.
+        max_lag (int): Maximum lag. If None, no lag features are created.
+        rolling_mean_size (int): Size of the rolling mean window in hours. If None, no rolling mean features are created.
     """    
     data = data.copy()
     data['dayofweek'] = data.index.dayofweek
@@ -119,7 +120,16 @@ def make_features(data, max_lag = None, rolling_mean_size = None):
     return data
 
 
-def load_data(filepath, max_lag = 1, rolling_mean_size = None):
+def load_data(filepath: str, max_lag: Optional[int] = 1, rolling_mean_size: Optional[int] = None) -> pd.DataFrame:
+    """
+    Loads the data and creates features.
+
+    Args:
+        filepath (str): Path to the csv file.
+        max_lag (int): Maximum lag. If None, no lag features are created.
+        rolling_mean_size (int): Size of the rolling mean window in hours. If None, no rolling mean features are created.
+    """
+
     df = process_missing_and_duplicate_timestamps(filepath, verbose=False)
     df['dt'] = pd.to_datetime(df['Datetime'])
     df.set_index('dt', inplace=True)
@@ -132,22 +142,32 @@ def load_data(filepath, max_lag = 1, rolling_mean_size = None):
     return df
 
 
-def mape(y_true, y_pred):
+def mape(y_true: np.ndarray, y_pred: np.ndarray)->np.ndarray:
+    """
+    Calculates the mean absolute percentage error.
+
+    Args:
+        y_true (np.ndarray): True values.
+        y_pred (np.ndarray): Predicted values.
+    """
     return np.mean(np.abs((y_true - y_pred) / y_true))
 
 
-def model_fit(data, model, target_col = 'MW', test_size = 0.3, visualize = True, diff_frac = 0.4):
+def model_fit(data: pd.DataFrame, model: RandomForestRegressor , target_col: str = 'MW', test_size: float = 0.3, visualize: bool = True, diff_frac: float = 0.4)->Tuple[RandomForestRegressor, pd.DateOffset]:
     """
-    Fits the model to the data.
+    Fits the model and calculates the MAPE.
 
     Args:
         data (pd.DataFrame): Dataframe with the target variable.
-        model (sklearn model): Model to fit.
-        target_col (str): Name of the target column.
-
-    Returns:
-        model (sklearn model): Fitted model.
+        model (RandomForestRegressor): Model to fit.
+        target_col (str): Name of the target variable.
+        test_size (float): Size of the test set.
+        visualize (bool): Whether to visualize the results.
+        diff_frac (float): Fraction of the data to use as a definition of outliers (for plotting)
     """
+
+
+
 
     train, test = train_test_split(
             data, shuffle=False, test_size=test_size )
@@ -254,7 +274,16 @@ default_model = RandomForestRegressor(n_estimators=700, max_depth=10, n_jobs=-1,
 
 
 
-def find_outliers(df_res,  visualize = True, threshold = 0.5):
+def find_outliers(df_res: pd.DataFrame,  visualize: bool = True, threshold: float = 0.5)->pd.DataFrame:
+    """
+    Finds outliers in the data.
+
+    Args:
+        df_res (pd.DataFrame): Dataframe with the target variable.
+        visualize (bool): Whether to visualize the results.
+        threshold (float): Threshold for outliers (in MAPE terms).
+    """
+
     outliers = df_res.query(f'abs(relative_error) > {threshold}')
     outliers_dates = outliers.index.map(lambda t: t.date()).unique()
 
@@ -290,7 +319,16 @@ def find_outliers(df_res,  visualize = True, threshold = 0.5):
     return outliers
 
 
-def plot_date(df_res, date_str, half_width_days = 3):
+def plot_date(df_res: pd.DataFrame, date_str: str, half_width_days: int = 3):
+    """
+    Plots the data for a given date.
+
+    Args:
+        df_res (pd.DataFrame): Dataframe with the target variable.
+        date_str (str): Date to plot.
+        half_width_days (int): Half-width of the plot in days.
+    """
+    
     date = pd.to_datetime(date_str)
     plt.figure(figsize=(10, 5))
 
