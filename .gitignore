@@ -1,7 +1,9 @@
 .DS_Store
 __pycache__
 *.pyc
-./data
 ./random_forest_old.ipynb
+data/est_hourly.paruqet
 ./random_forest.ipynb
+data/energy-consumption.csv
+data/hourly1418_energy_temp_PV.csv
 __pycache__/*

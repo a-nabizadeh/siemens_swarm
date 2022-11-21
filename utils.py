@@ -9,6 +9,8 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_val_
 from sklearn.preprocessing import StandardScaler
 sns.set_context('talk', font_scale=1)
 sns.set_palette('Set1')
+import warnings
+warnings.filterwarnings('ignore')
 
 def process_missing_and_duplicate_timestamps(filepath, verbose=False):
     # This gist was created for the Kaggle dataset "Hourly Energy Consumption" which can be found at https://www.kaggle.com/robikscube/hourly-energy-consumption
@@ -131,7 +133,7 @@ def load_data(filepath, max_lag = 1, rolling_mean_size = None):
 
 
 def mape(y_true, y_pred):
-    return round(np.mean(np.abs((y_true - y_pred) / y_true)) * 100, 2)
+    return np.mean(np.abs((y_true - y_pred) / y_true))
 
 
 def model_fit(data, model, target_col = 'MW', test_size = 0.3, visualize = True):
@@ -177,7 +179,7 @@ def model_fit(data, model, target_col = 'MW', test_size = 0.3, visualize = True)
 
     df_res = pd.concat([train, test], axis=0)
 
-    df_res['relative_error'] = 100*(df_res['MW'] - df_res['pred']) / df_res['MW']
+    df_res['relative_error'] = (df_res['MW'] - df_res['pred']) / df_res['MW']
 
     if visualize:
         plt.figure(figsize=(9, 9))
@@ -227,13 +229,13 @@ default_model = RandomForestRegressor(n_estimators=700, max_depth=10, n_jobs=-1,
 
 
 
-def find_outliers(df_res,  visualize = True, threshold_per_cent = 50):
-    outliers = df_res.query(f'abs(relative_error) > {threshold_per_cent}')
+def find_outliers(df_res,  visualize = True, threshold = 0.5):
+    outliers = df_res.query(f'abs(relative_error) > {threshold}')
     outliers_dates = outliers.index.map(lambda t: t.date()).unique()
 
     if visualize:
         for date in outliers_dates:
-            plt.figure(figsize=(10, 5))
+            plt.figure(figsize=(10, 7))
             #idxs = df_res.index.map(lambda t: t.date()) == date
             #idxs are within 2 days
             idxs = (df_res.index.map(lambda t: t.date()) >= date - pd.Timedelta(days=2)) & (df_res.index.map(lambda t: t.date()) <= date + pd.Timedelta(days=2))
@@ -241,15 +243,15 @@ def find_outliers(df_res,  visualize = True, threshold_per_cent = 50):
             actual = df_res[idxs]['MW']
             pred = df_res[idxs]['pred']
 
-            outliers = df_res[idxs].query(f'abs(relative_error) > {threshold_per_cent}')
+            outliers = df_res[idxs].query(f'abs(relative_error) > {threshold}')
 
-            pred_low_th = pred - pred*threshold_per_cent/100
-            pred_high_th = pred + pred*threshold_per_cent/100
+            pred_low_th = pred - pred*threshold
+            pred_high_th = pred + pred*threshold
 
 
             plt.plot(actual, label='actual', alpha = 0.5, color = 'C1')
             plt.plot(pred, label='predicted', alpha = 0.5, color = 'C0', linestyle = '--')
-            plt.fill_between(df_res[idxs].index, pred_high_th, pred_low_th, alpha = 0.05, color = 'C0', label = f'{threshold_per_cent}% outlier threshold')
+            plt.fill_between(df_res[idxs].index, pred_high_th, pred_low_th, alpha = 0.05, color = 'C0', label = f'{threshold*100}% outlier threshold')
 
             plt.plot(outliers['MW'], 'X', label='outliers', alpha = 0.5, color = 'r')
 
